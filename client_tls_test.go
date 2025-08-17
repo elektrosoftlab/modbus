@@ -206,14 +206,12 @@ func TestTCPoverTLSClient(t *testing.T) {
 	// load server and client keypairs
 	serverKeyPair, err = tls.X509KeyPair([]byte(serverCert), []byte(serverKey))
 	if err != nil {
-		t.Errorf("failed to load test server key pair: %v", err)
-		return
+		t.Fatalf("failed to load test server key pair: %v", err)
 	}
 
 	clientKeyPair, err = tls.X509KeyPair([]byte(clientCert), []byte(clientKey))
 	if err != nil {
-		t.Errorf("failed to load test client key pair: %v", err)
-		return
+		t.Fatalf("failed to load test client key pair: %v", err)
 	}
 
 	// start with an empty client cert pool initially to reject the server

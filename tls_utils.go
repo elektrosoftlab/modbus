@@ -3,39 +3,33 @@ package modbus
 import (
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"time"
 )
 
 // LoadCertPool loads a certificate store from a file into a CertPool object.
-func LoadCertPool(filePath string) (cp *x509.CertPool, err error) {
-	var buf []byte
-
+func LoadCertPool(filePath string) (*x509.CertPool, error) {
 	// read the entire cert store, which may contain zero, one
 	// or more certificates
-	buf, err = ioutil.ReadFile(filePath)
+	buf, err := os.ReadFile(filePath)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if len(buf) == 0 {
-		err = fmt.Errorf("%v: empty file", filePath)
-		return
+		return nil, fmt.Errorf("%v: empty file", filePath)
 	}
 
 	// add these certs to the pool
-	cp = x509.NewCertPool()
+	cp := x509.NewCertPool()
 	cp.AppendCertsFromPEM(buf)
 
 	// let the caller know if no usable certificate was found
 	if len(cp.Subjects()) == 0 {
-		err = fmt.Errorf("%v: no certificate found", filePath)
-		return
+		return nil, fmt.Errorf("%v: no certificate found", filePath)
 	}
-
-	return
+	return cp, nil
 }
 
 // tlsSockWrapper wraps a TLS socket to work around odd error handling in
@@ -47,17 +41,13 @@ type tlsSockWrapper struct {
 }
 
 func newTLSSockWrapper(sock net.Conn) (tsw *tlsSockWrapper) {
-	tsw = &tlsSockWrapper{
+	return &tlsSockWrapper{
 		sock: sock,
 	}
-
-	return
 }
 
-func (tsw *tlsSockWrapper) Read(buf []byte) (rlen int, err error) {
-	rlen, err = tsw.sock.Read(buf)
-
-	return
+func (tsw *tlsSockWrapper) Read(buf []byte) (int, error) {
+	return tsw.sock.Read(buf)
 }
 
 func (tsw *tlsSockWrapper) Write(buf []byte) (wlen int, err error) {
@@ -75,42 +65,29 @@ func (tsw *tlsSockWrapper) Write(buf []byte) (wlen int, err error) {
 	if err != nil && os.IsTimeout(err) {
 		tsw.sock.Close()
 	}
-
 	return
 }
 
-func (tsw *tlsSockWrapper) Close() (err error) {
-	err = tsw.sock.Close()
-
-	return
+func (tsw *tlsSockWrapper) Close() error {
+	return tsw.sock.Close()
 }
 
-func (tsw *tlsSockWrapper) SetDeadline(deadline time.Time) (err error) {
-	err = tsw.sock.SetDeadline(deadline)
-
-	return
+func (tsw *tlsSockWrapper) SetDeadline(deadline time.Time) error {
+	return tsw.sock.SetDeadline(deadline)
 }
 
-func (tsw *tlsSockWrapper) SetReadDeadline(deadline time.Time) (err error) {
-	err = tsw.sock.SetReadDeadline(deadline)
-
-	return
+func (tsw *tlsSockWrapper) SetReadDeadline(deadline time.Time) error {
+	return tsw.sock.SetReadDeadline(deadline)
 }
 
-func (tsw *tlsSockWrapper) SetWriteDeadline(deadline time.Time) (err error) {
-	err = tsw.sock.SetWriteDeadline(deadline)
-
-	return
+func (tsw *tlsSockWrapper) SetWriteDeadline(deadline time.Time) error {
+	return tsw.sock.SetWriteDeadline(deadline)
 }
 
-func (tsw *tlsSockWrapper) LocalAddr() (addr net.Addr) {
-	addr = tsw.sock.LocalAddr()
-
-	return
+func (tsw *tlsSockWrapper) LocalAddr() net.Addr {
+	return tsw.sock.LocalAddr()
 }
 
-func (tsw *tlsSockWrapper) RemoteAddr() (addr net.Addr) {
-	addr = tsw.sock.RemoteAddr()
-
-	return
+func (tsw *tlsSockWrapper) RemoteAddr() net.Addr {
+	return tsw.sock.RemoteAddr()
 }
