@@ -8,7 +8,7 @@ import (
 )
 
 func TestUDPSockWrapper(t *testing.T) {
-	var err error
+	//var err error
 	var usw *udpSockWrapper
 	var sock1 *net.UDPConn
 	var sock2 *net.UDPConn
@@ -17,29 +17,26 @@ func TestUDPSockWrapper(t *testing.T) {
 	var rxbuf []byte
 	var count int
 
-	addr, err = net.ResolveUDPAddr("udp", "localhost:5502")
+	addr, err := net.ResolveUDPAddr("udp", "localhost:5502")
 	if err != nil {
-		t.Errorf("failed to resolve udp address: %v", err)
-		return
+		t.Fatalf("failed to resolve udp address: %v", err)
 	}
 
 	txchan = make(chan []byte, 4)
 	// get a pair of UDP sockets ready to talk to each other
 	sock1, err = net.ListenUDP("udp", addr)
 	if err != nil {
-		t.Errorf("failed to listen on udp socket: %v", err)
-		return
+		t.Fatalf("failed to listen on udp socket: %v", err)
 	}
+
 	err = sock1.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
-		t.Errorf("failed to set deadline on udp socket: %v", err)
-		return
+		t.Fatalf("failed to set deadline on udp socket: %v", err)
 	}
 
 	sock2, err = net.DialUDP("udp", nil, addr)
 	if err != nil {
-		t.Errorf("failed to open udp socket: %v", err)
-		return
+		t.Fatalf("failed to open udp socket: %v", err)
 	}
 	// the feedTestPipe goroutine will forward any slice of bytes
 	// pushed into txchan over UDP to our test UDP sock wrapper object
