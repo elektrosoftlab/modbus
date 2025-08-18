@@ -392,7 +392,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			var resCount int
 
 			if len(req.payload) != 4 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -403,7 +403,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			// ensure the reply never exceeds the maximum PDU length and we
 			// never read past 0xffff
 			if quantity > 2000 || quantity == 0 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 			if uint32(addr)+uint32(quantity)-1 > 0xffff {
@@ -464,7 +464,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 
 		case fcWriteSingleCoil:
 			if len(req.payload) != 4 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -474,7 +474,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			// validate the value field (should be either 0xff00 or 0x0000)
 			if (req.payload[2] != 0xff && req.payload[2] != 0x00) ||
 				req.payload[3] != 0x00 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -509,7 +509,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			var expectedLen int
 
 			if len(req.payload) < 6 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -520,7 +520,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			// ensure the reply never exceeds the maximum PDU length and we
 			// never read past 0xffff
 			if quantity > 0x7b0 || quantity == 0 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 			if uint32(addr)+uint32(quantity)-1 > 0xffff {
@@ -535,13 +535,13 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			}
 
 			if req.payload[4] != uint8(expectedLen) {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
 			// make sure we have enough bytes
 			if len(req.payload)-5 != expectedLen {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -577,7 +577,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			var resCount int
 
 			if len(req.payload) != 4 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -588,7 +588,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			// ensure the reply never exceeds the maximum PDU length and we
 			// never read past 0xffff
 			if quantity > 0x007d || quantity == 0 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 			if uint32(addr)+uint32(quantity)-1 > 0xffff {
@@ -650,7 +650,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			var value uint16
 
 			if len(req.payload) != 4 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -690,7 +690,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			var expectedLen int
 
 			if len(req.payload) < 6 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -701,7 +701,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			// ensure the reply never exceeds the maximum PDU length and we
 			// never read past 0xffff
 			if quantity > 0x007b || quantity == 0 {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 			if uint32(addr)+uint32(quantity)-1 > 0xffff {
@@ -713,13 +713,13 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 			expectedLen = int(quantity) * 2
 
 			if req.payload[4] != uint8(expectedLen) {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
 			// make sure we have enough bytes
 			if len(req.payload)-5 != expectedLen {
-				err = ErrProtocolError
+				err = ErrProtocol
 				break
 			}
 
@@ -774,7 +774,7 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 		// map go errors to modbus errors, unless the error is a protocol error,
 		// in which case close the transport and return.
 		if err != nil {
-			if err == ErrProtocolError {
+			if err == ErrProtocol {
 				ms.logger.Warningf(
 					"protocol error, closing link (client address: '%s')",
 					clientAddr)
@@ -803,18 +803,20 @@ func (ms *ModbusServer) handleTransport(t transport, clientAddr string, clientRo
 
 // startTLS performs a full TLS handshake (with client authentication) on tcpSock
 // and returns a 'wrapped' clear-text socket suitable for use by the TCP transport.
-func (ms *ModbusServer) startTLS(tcpSock net.Conn) (
-	tlsSock *tls.Conn, clientRole string, err error) {
-	var connState tls.ConnectionState
+func (ms *ModbusServer) startTLS(tcpSock net.Conn) (*tls.Conn, string, error) {
+	var (
+		connState  tls.ConnectionState
+		clientRole string
+	)
 
 	// set a 30s timeout for the TLS handshake to complete
-	err = tcpSock.SetDeadline(time.Now().Add(30 * time.Second))
+	err := tcpSock.SetDeadline(time.Now().Add(30 * time.Second))
 	if err != nil {
-		return
+		return nil, "", err
 	}
 
 	// start TLS negotiation over the raw TCP connection
-	tlsSock = tls.Server(tcpSock, &tls.Config{
+	tlsSock := tls.Server(tcpSock, &tls.Config{
 		Certificates: []tls.Certificate{
 			*ms.conf.TLSServerCert,
 		},
@@ -829,31 +831,30 @@ func (ms *ModbusServer) startTLS(tcpSock net.Conn) (
 	// complete the full TLS handshake (with client cert validation)
 	err = tlsSock.Handshake()
 	if err != nil {
-		return
+		return nil, "", err
 	}
 
 	// look for and extract the client's role, if any
 	connState = tlsSock.ConnectionState()
 	if len(connState.PeerCertificates) == 0 {
-		err = errors.New("no client certificate received")
-		return
+		return nil, "", errors.New("no client certificate received")
 	}
 	// From the tls.ConnectionState doc:
 	// "The first element is the leaf certificate that the connection is
 	// verified against."
 	clientRole = ms.extractRole(connState.PeerCertificates[0])
-
-	return
+	return tlsSock, clientRole, nil
 }
 
 // extractRole looks for Modbus Role extensions in a certificate and returns the
 // role as a string.
 // If no role extension is found, a nil string is returned (R-23).
 // If multiple or invalid role extensions are found, a nil string is returned (R-65, R-22).
-func (ms *ModbusServer) extractRole(cert *x509.Certificate) (role string) {
+func (ms *ModbusServer) extractRole(cert *x509.Certificate) string {
 	var err error
 	var found bool
 	var badCert bool
+	var role string
 
 	// walk through all extensions looking for Modbus Role OIDs
 	for _, ext := range cert.Extensions {
@@ -889,5 +890,5 @@ func (ms *ModbusServer) extractRole(cert *x509.Certificate) (role string) {
 		role = ""
 	}
 
-	return
+	return role
 }

@@ -59,7 +59,7 @@ var (
 	ErrGWTargetFailedToRespond = errors.New("gateway target device failed to respond")
 	ErrBadCRC                  = errors.New("bad crc")
 	ErrShortFrame              = errors.New("short frame")
-	ErrProtocolError           = errors.New("protocol error")
+	ErrProtocol                = errors.New("protocol error")
 	ErrBadUnitId               = errors.New("bad unit id")
 	ErrBadTransactionId        = errors.New("bad transaction id")
 	ErrUnknownProtocolId       = errors.New("unknown protocol identifier")

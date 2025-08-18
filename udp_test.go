@@ -8,7 +8,6 @@ import (
 )
 
 func TestUDPSockWrapper(t *testing.T) {
-	//var err error
 	var usw *udpSockWrapper
 	var sock1 *net.UDPConn
 	var sock2 *net.UDPConn

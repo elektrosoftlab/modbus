@@ -76,7 +76,7 @@ func TestRTUTransportReadRTUFrame(t *testing.T) {
 	}
 	res, err = rt.readRTUFrame()
 	if err != nil {
-		t.Errorf("readRTUFrame() should have succeeded, got %v", err)
+		t.Fatalf("readRTUFrame() should have succeeded, got %v", err)
 	}
 	if res.unitId != 0x31 {
 		t.Errorf("expected 0x31 as unit id, got 0x%02x", res.unitId)

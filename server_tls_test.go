@@ -124,8 +124,7 @@ func TestTLSServer(t *testing.T) {
 	// load server keypair (from client_tls_test.go)
 	serverKeyPair, err = tls.X509KeyPair([]byte(serverCert), []byte(serverKey))
 	if err != nil {
-		t.Errorf("failed to load test server key pair: %v", err)
-		return
+		t.Fatalf("failed to load test server key pair: %v", err)
 	}
 
 	// load the first client keypair (from client_tls_test.go)

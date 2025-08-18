@@ -1,6 +1,7 @@
 package modbus
 
 import (
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -61,8 +62,7 @@ func TestTCPTransportReadResponse(t *testing.T) {
 	var tt *tcpTransport
 	var p1, p2 net.Conn
 	var txchan chan []byte
-	var err error
-	var res *pdu
+	//var res *pdu
 
 	txchan = make(chan []byte, 2)
 	p1, p2 = net.Pipe()
@@ -79,9 +79,9 @@ func TestTCPTransportReadResponse(t *testing.T) {
 		0x31, 0x06, // unit id and function code
 		0x12, 0x34, // payload
 	}
-	res, err = tt.readResponse()
+	res, err := tt.readResponse()
 	if err != nil {
-		t.Errorf("readResponse() should have succeeded, got %v", err)
+		t.Fatalf("readResponse() should have succeeded, got %v", err)
 	}
 	if res.unitId != 0x31 {
 		t.Errorf("expected 0x31 as unit id, got 0x%02x", res.unitId)
@@ -115,7 +115,7 @@ func TestTCPTransportReadResponse(t *testing.T) {
 	}
 	res, err = tt.readResponse()
 	if err != nil {
-		t.Errorf("readResponse() should have succeeded, got %v", err)
+		t.Fatalf("readResponse() should have succeeded, got %v", err)
 	}
 	if res.unitId != 0x39 {
 		t.Errorf("expected 0x39 as unit id, got 0x%02x", res.unitId)
@@ -148,7 +148,7 @@ func TestTCPTransportReadResponse(t *testing.T) {
 		0x31, // unit id
 	}
 	_, err = tt.readResponse()
-	if err != ErrProtocolError {
+	if !errors.Is(err, ErrProtocol) {
 		t.Errorf("readResponse() should have returned ErrProtocolError, got %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestTCPTransportReadResponse(t *testing.T) {
 		0x31, // unit id
 	}
 	_, err = tt.readResponse()
-	if err != ErrProtocolError {
+	if !errors.Is(err, ErrProtocol) {
 		t.Errorf("readResponse() should have returned ErrProtocolError, got %v", err)
 	}
 
@@ -208,8 +208,8 @@ func TestTCPTransportReadRequest(t *testing.T) {
 	var tt *tcpTransport
 	var p1, p2 net.Conn
 	var txchan chan []byte
-	var err error
-	var req *pdu
+	//var err error
+	//var req *pdu
 
 	txchan = make(chan []byte, 2)
 	p1, p2 = net.Pipe()
@@ -247,9 +247,9 @@ func TestTCPTransportReadRequest(t *testing.T) {
 	}
 
 	// read the first frame
-	req, err = tt.ReadRequest()
+	req, err := tt.ReadRequest()
 	if req != nil || err != ErrUnknownProtocolId {
-		t.Errorf("ReadRequest() should have returned {nil, ErrUnknownProtocolId}, got {%v, %v}", req, err)
+		t.Fatalf("ReadRequest() should have returned {nil, ErrUnknownProtocolId}, got {%v, %v}", req, err)
 	}
 	if tt.lastTxnId != 0x0a00 {
 		t.Errorf("tt.lastTxnId should have been 0x0a00, saw 0x%02x", tt.lastTxnId)
@@ -257,7 +257,7 @@ func TestTCPTransportReadRequest(t *testing.T) {
 
 	// read the second frame
 	req, err = tt.ReadRequest()
-	if req != nil || err != ErrProtocolError {
+	if req != nil || !errors.Is(err, ErrProtocol) {
 		t.Errorf("ReadRequest() should have returned {nil, ErrProtocolError}, got {%v, %v}", req, err)
 	}
 	if tt.lastTxnId != 0x0a00 {
@@ -267,10 +267,11 @@ func TestTCPTransportReadRequest(t *testing.T) {
 	// read the third frame
 	req, err = tt.ReadRequest()
 	if err != nil {
-		t.Errorf("ReadRequest() should have succeeded, got %v", err)
+		t.Fatalf("ReadRequest() should have succeeded, got %v", err)
 	}
+
 	if req == nil {
-		t.Errorf("ReadREsponse() should have returned a non-nil request")
+		t.Fatal("ReadREsponse() should have returned a non-nil request")
 	}
 	if req.unitId != 0xfa {
 		t.Errorf("expected 0xfa as unit id, got 0x%02x", req.unitId)
@@ -301,12 +302,11 @@ func TestTCPTransportWriteResponse(t *testing.T) {
 	var tt *tcpTransport
 	var p1, p2 net.Conn
 	var done chan bool
-	var err error
+	//var err error
 
 	done = make(chan bool)
 	p1, p2 = net.Pipe()
 	go func(t *testing.T, pipe net.Conn, done chan bool) {
-		var err error
 		var rxbuf []byte
 		expected := []byte{
 			0xc0, 0x1f, // transaction identifier (big endian)
@@ -321,7 +321,7 @@ func TestTCPTransportWriteResponse(t *testing.T) {
 		}
 
 		rxbuf = make([]byte, len(expected))
-		_, err = io.ReadFull(pipe, rxbuf)
+		_, err := io.ReadFull(pipe, rxbuf)
 		if err != nil {
 			t.Errorf("failed to read frame: %v", err)
 		}
@@ -339,7 +339,7 @@ func TestTCPTransportWriteResponse(t *testing.T) {
 	tt = newTCPTransport(p1, 10*time.Millisecond, nil)
 	tt.lastTxnId = 0xc01f
 
-	err = tt.WriteResponse(&pdu{
+	err := tt.WriteResponse(&pdu{
 		unitId:       0x17,
 		functionCode: 0x06,
 		payload: []byte{
