@@ -712,17 +712,13 @@ func (mc *ModbusClient) WriteRegister(addr uint16, value uint16) error {
 }
 
 // Writes multiple 16-bit registers (function code 16).
-func (mc *ModbusClient) WriteRegisters(addr uint16, values []uint16) (err error) {
+func (mc *ModbusClient) WriteRegisters(addr uint16, values []uint16) error {
 	var payload []byte
-
 	// turn registers to bytes
 	for _, value := range values {
 		payload = append(payload, uint16ToBytes(mc.endianness, value)...)
 	}
-
-	err = mc.writeRegisters(addr, payload)
-
-	return
+	return mc.writeRegisters(addr, payload)
 }
 
 // Writes multiple 32-bit registers.
@@ -740,10 +736,8 @@ func (mc *ModbusClient) WriteUint32s(addr uint16, values []uint32) (err error) {
 }
 
 // Writes a single 32-bit register.
-func (mc *ModbusClient) WriteUint32(addr uint16, value uint32) (err error) {
-	err = mc.writeRegisters(addr, uint32ToBytes(mc.endianness, mc.wordOrder, value))
-
-	return
+func (mc *ModbusClient) WriteUint32(addr uint16, value uint32) error {
+	return mc.writeRegisters(addr, uint32ToBytes(mc.endianness, mc.wordOrder, value))
 }
 
 // Writes multiple 32-bit float registers.
@@ -1069,21 +1063,18 @@ func (mc *ModbusClient) writeRegisters(addr uint16, values []byte) (err error) {
 	quantity = payloadLength / 2
 
 	if quantity == 0 {
-		err = ErrUnexpectedParameters
 		mc.logger.Error("quantity of registers is 0")
-		return
+		return ErrUnexpectedParameters
 	}
 
 	if quantity > 123 {
-		err = ErrUnexpectedParameters
 		mc.logger.Error("quantity of registers exceeds 123")
-		return
+		return ErrUnexpectedParameters
 	}
 
 	if uint32(addr)+uint32(quantity)-1 > 0xffff {
-		err = ErrUnexpectedParameters
 		mc.logger.Error("end register address is past 0xffff")
-		return
+		return ErrUnexpectedParameters
 	}
 
 	// create and fill in the request object
@@ -1104,7 +1095,7 @@ func (mc *ModbusClient) writeRegisters(addr uint16, values []byte) (err error) {
 	// run the request across the transport and wait for a response
 	res, err = mc.executeRequest(req)
 	if err != nil {
-		return
+		return err
 	}
 
 	// validate the response code
@@ -1116,48 +1107,41 @@ func (mc *ModbusClient) writeRegisters(addr uint16, values []byte) (err error) {
 			bytesToUint16(BIG_ENDIAN, res.payload[0:2]) != addr ||
 			// bytes 3-4 should be the quantity of registers (2 bytes per register)
 			bytesToUint16(BIG_ENDIAN, res.payload[2:4]) != quantity {
-			err = ErrProtocol
-			return
+			return ErrProtocol
 		}
 
 	case res.functionCode == (req.functionCode | 0x80):
 		if len(res.payload) != 1 {
-			err = ErrProtocol
-			return
+			return ErrProtocol
 		}
-
-		err = mapExceptionCodeToError(res.payload[0])
+		return mapExceptionCodeToError(res.payload[0])
 
 	default:
 		err = ErrProtocol
 		mc.logger.Warningf("unexpected response code (%v)", res.functionCode)
 	}
 
-	return
+	return nil
 }
 
-func (mc *ModbusClient) executeRequest(req *pdu) (res *pdu, err error) {
+func (mc *ModbusClient) executeRequest(req *pdu) (*pdu, error) {
 	// send the request over the wire, wait for and decode the response
-	res, err = mc.transport.ExecuteRequest(req)
+	res, err := mc.transport.ExecuteRequest(req)
 	if err != nil {
 		// map i/o timeouts to ErrRequestTimedOut
 		if os.IsTimeout(err) {
-			err = ErrRequestTimedOut
+			return nil, ErrRequestTimedOut
 		}
-		return
+		return nil, err
 	}
-
 	// make sure the source unit id matches that of the request
 	if (res.functionCode&0x80) == 0x00 && res.unitId != req.unitId {
-		err = ErrBadUnitId
-		return
+		return nil, ErrBadUnitId
 	}
 	// accept errors from gateway devices (using special unit id #255)
 	if (res.functionCode&0x80) == 0x80 &&
 		(res.unitId != req.unitId && res.unitId != 0xff) {
-		err = ErrBadUnitId
-		return
+		return nil, ErrBadUnitId
 	}
-
-	return
+	return res, nil
 }

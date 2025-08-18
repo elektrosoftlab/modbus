@@ -56,9 +56,8 @@ func (c *crc) add(in []byte) {
 }
 
 // Returns the CRC as two bytes, swapped.
-func (c *crc) value() (value []byte) {
-	value = uint16ToBytes(LITTLE_ENDIAN, c.crc)
-	return
+func (c *crc) value() []byte {
+	return uint16ToBytes(LITTLE_ENDIAN, c.crc)
 }
 
 func (c *crc) isEqual(low byte, high byte) (yes bool) {
